@@ -342,7 +342,9 @@ class ImageViewRosInterface(Node):
                 self.image_sync = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
             else:
                 self.image_sync = self.bridge.imgmsg_to_cv2(self.image_sync)
-                # image = cv2.cvtColor(self.raw_image, cv2.COLOR_BGR2RGB)
+                # Handle 4-channel images (e.g., bgra8 from CARLA)
+                if len(self.image_sync.shape) == 3 and self.image_sync.shape[2] == 4:
+                    self.image_sync = cv2.cvtColor(self.image_sync, cv2.COLOR_BGRA2BGR)
 
             self.sensor_data_callback(self.image_sync, self.camera_info_sync, points_np, min_delay)
 

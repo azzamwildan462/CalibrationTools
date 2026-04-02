@@ -23,6 +23,8 @@
   <arg name="mapping_max_frames" default="5000"/>
   <arg name="mapping_min_range" default="1.0"/>
   <arg name="mapping_max_range" default="100.0"/>
+  <arg name="min_mapping_pointcloud_size" default="10000"/>
+  <arg name="min_calibration_pointcloud_size" default="500"/>
   <arg name="marker_size" default="10.0"/>
   <arg name="mapper_resolution" default="1.0"/>
   <arg name="mapper_step_size" default="0.05"/>
@@ -33,9 +35,10 @@
 
   <arg name="lidar_calibration_max_frames" default="7"/>
   <arg name="camera_calibration_max_frames" default="1"/>
-  <arg name="lost_frame_max_angle_diff" default="25.0"/>
-  <arg name="lost_frame_interpolation_error" default="0.05"/>
-  <arg name="lost_frame_max_acceleration" default="8.0"/>
+  <arg name="use_lost_state_filter" default="true"/>
+  <arg name="lost_frame_max_angle_diff" default="90.0"/>
+  <arg name="lost_frame_interpolation_error" default="5.0"/>
+  <arg name="lost_frame_max_acceleration" default="100.0"/>
   <arg name="min_calibration_range" default="1.5"/>
   <arg name="max_calibration_range" default="80.0"/>
   <arg name="calibration_min_pca_eigenvalue" default="0.02"/>
@@ -89,6 +92,8 @@
       <param name="mapping_max_frames" value="$(var mapping_max_frames)"/>
       <param name="mapping_min_range" value="$(var mapping_min_range)"/>
       <param name="mapping_max_range" value="$(var mapping_max_range)"/>
+      <param name="min_mapping_pointcloud_size" value="$(var min_mapping_pointcloud_size)"/>
+      <param name="min_calibration_pointcloud_size" value="$(var min_calibration_pointcloud_size)"/>
       <param name="marker_size" value="$(var marker_size)"/>
       <param name="mapper_resolution" value="$(var mapper_resolution)"/>
       <param name="mapper_step_size" value="$(var mapper_step_size)"/>
@@ -100,6 +105,7 @@
       <param name="lidar_calibration_max_frames" value="$(var lidar_calibration_max_frames)"/>
       <param name="camera_calibration_max_frames" value="$(var camera_calibration_max_frames)"/>
 
+      <param name="use_lost_state_filter" value="$(var use_lost_state_filter)"/>
       <param name="lost_frame_max_angle_diff" value="$(var lost_frame_max_angle_diff)"/>
       <param name="lost_frame_interpolation_error" value="$(var lost_frame_interpolation_error)"/>
       <param name="lost_frame_max_acceleration" value="$(var lost_frame_max_acceleration)"/>

@@ -51,12 +51,15 @@ LidarCalibrator::LidarCalibrator(
     new BestFramesFilter(Filter::FilterType::LidarFilter, calibrator_name_, parameters));
   std::shared_ptr<Filter> object_detection_filter(new ObjectDetectionFilter(
     Filter::FilterType::LidarFilter, calibrator_name_, parameters, tf_buffer_));
-  std::vector<std::shared_ptr<Filter>> filters =
-    parameters_->filter_detections_
-      ? std::vector<std::shared_ptr<
-          Filter>>{lost_state_filter, dynamics_filter, best_frames_filter, object_detection_filter}
-      : std::vector<std::shared_ptr<Filter>>{
-          lost_state_filter, dynamics_filter, best_frames_filter};
+  std::vector<std::shared_ptr<Filter>> filters;
+  if (parameters_->use_lost_state_filter_) {
+    filters.push_back(lost_state_filter);
+  }
+  filters.push_back(dynamics_filter);
+  filters.push_back(best_frames_filter);
+  if (parameters_->filter_detections_) {
+    filters.push_back(object_detection_filter);
+  }
 
   filter_.reset(
     new SequentialFilter(Filter::FilterType::LidarFilter, calibrator_name_, parameters, filters));

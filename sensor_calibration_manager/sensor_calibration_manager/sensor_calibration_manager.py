@@ -44,6 +44,7 @@ from launch.frontend import Parser
 from launch.launch_description import LaunchDescription
 import psutil
 import rclpy
+from std_srvs.srv import Empty
 
 from sensor_calibration_manager.calibration_manager_model import CalibratorManagerModel
 from sensor_calibration_manager.calibrator_base import CalibratorState
@@ -80,6 +81,9 @@ class SensorCalibrationManager(QMainWindow):
         self.request_calibration_button = QPushButton("Calibrate")
         self.request_calibration_button.clicked.connect(self.on_calibration_request)
         self.request_calibration_button.setEnabled(False)
+        self.stop_mapping_button = QPushButton("Stop Mapping")
+        self.stop_mapping_button.clicked.connect(self.on_stop_mapping_request)
+        self.stop_mapping_button.setEnabled(False)
         self.request_save_button = QPushButton("Save calibration")
         self.request_save_button.clicked.connect(self.on_save_request)
         self.request_save_button.setEnabled(False)
@@ -113,6 +117,7 @@ class SensorCalibrationManager(QMainWindow):
         self.control_layout = QHBoxLayout()
         self.control_layout.addWidget(self.status_label)
         self.control_layout.addStretch()
+        self.control_layout.addWidget(self.stop_mapping_button)
         self.control_layout.addWidget(self.request_calibration_button)
         self.control_layout.addWidget(self.request_save_button)
 
@@ -151,7 +156,25 @@ class SensorCalibrationManager(QMainWindow):
         # Show the main UI
         self.show()
 
-        # Execute the launcher
+        # Save launch info for re-launch on recalibrate
+        self.launch_project_name = project_name
+        self.launch_calibrator_name = calibrator_name
+        self.launch_argument_dict = launch_argument_dict
+
+        self._launch_process(project_name, calibrator_name, launch_argument_dict)
+
+    def _launch_process(
+        self, project_name: str, calibrator_name: str, launch_argument_dict: Dict
+    ):
+        # Reset TF state for fresh start
+        self.tfs_dict = defaultdict(lambda: defaultdict(None))
+
+        # Reset calibration button
+        self.request_calibration_button.setText("Calibrate")
+        self.request_calibration_button.setEnabled(False)
+        self.request_save_button.setEnabled(False)
+        self.stop_mapping_button.setEnabled(False)
+
         argument_list = [f"{k}:={v}" for k, v in launch_argument_dict.items()]
 
         package_share_directory = get_package_share_directory("sensor_calibration_manager")
@@ -218,16 +241,61 @@ class SensorCalibrationManager(QMainWindow):
 
         if state == CalibratorState.READY:
             self.request_calibration_button.setEnabled(True)
+            self.stop_mapping_button.setEnabled(True)
+        elif state == CalibratorState.CALIBRATING:
+            self.request_calibration_button.setEnabled(False)
+            self.stop_mapping_button.setEnabled(True)
         elif state == CalibratorState.FINISHED:
             self.request_calibration_button.setText("Recalibrate")
             self.request_calibration_button.setEnabled(True)
             self.request_save_button.setEnabled(True)
+            self.stop_mapping_button.setEnabled(False)
         else:
             self.request_calibration_button.setEnabled(False)
             self.request_save_button.setEnabled(False)
+            self.stop_mapping_button.setEnabled(False)
+
+    def on_stop_mapping_request(self):
+        logging.info("Requesting stop_mapping service...")
+        self.stop_mapping_button.setEnabled(False)
+        self.stop_mapping_button.setText("Stopping...")
+
+        if not hasattr(self, '_stop_mapping_client'):
+            self._stop_mapping_client = self.ros_interface.create_client(Empty, "/stop_mapping")
+
+        if self._stop_mapping_client.service_is_ready():
+            future = self._stop_mapping_client.call_async(Empty.Request())
+            future.add_done_callback(self._on_stop_mapping_done)
+        else:
+            logging.warning("stop_mapping service not available")
+            self.stop_mapping_button.setText("Stop Mapping")
+            self.stop_mapping_button.setEnabled(True)
+
+    def _on_stop_mapping_done(self, future):
+        logging.info("stop_mapping service called successfully")
+        self.stop_mapping_button.setText("Stop Mapping")
 
     def on_calibration_request(self):
         logging.debug("on_calibration_request")
+        if self.calibrator.state == CalibratorState.FINISHED:
+            # Recalibrate: kill old process and re-launch from scratch
+            logging.info("Recalibrating: restarting calibrator process...")
+            self.request_calibration_button.setEnabled(False)
+            self.request_save_button.setEnabled(False)
+            self.status_label.setText("Restarting calibrator...")
+            self.terminate_calibrators()
+
+            import time
+            time.sleep(2)
+
+            # Re-launch
+            self._launch_process(
+                self.launch_project_name,
+                self.launch_calibrator_name,
+                self.launch_argument_dict,
+            )
+            return
+
         self.calibrator.start_calibration()
 
     def on_calibration_finished(self):

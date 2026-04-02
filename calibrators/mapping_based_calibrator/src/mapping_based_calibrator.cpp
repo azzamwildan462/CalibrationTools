@@ -183,6 +183,8 @@ ExtrinsicMappingBasedCalibrator::ExtrinsicMappingBasedCalibrator(
   calibration_parameters_->max_allowed_interpolated_accel_straight_ =
     this->declare_parameter<double>("max_allowed_interpolated_accel_straight", 0.1);
 
+  calibration_parameters_->use_lost_state_filter_ =
+    this->declare_parameter<bool>("use_lost_state_filter", true);
   calibration_parameters_->filter_detections_ =
     this->declare_parameter<bool>("filter_detections", true);
   calibration_parameters_->detection_max_time_tolerance_ =

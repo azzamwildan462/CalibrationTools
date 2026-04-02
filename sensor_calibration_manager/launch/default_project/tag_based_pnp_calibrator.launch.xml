@@ -1,12 +1,16 @@
 <launch>
+  <arg name="base_frame" default="base_link" description="Vehicle base frame"/>
   <arg name="image_frame" description="E.g., camera0/camera_optical_link"/>
   <arg name="lidar_frame" description="E.g., velodyne_top"/>
+  <let name="camera_optical_link_frame" value="$(var image_frame)"/>
   <arg name="image_decompressed_topic" default="/sensing/camera/camera0/image_rect_color/decompressed" description="Internal topic to decompress the image"/>
   <arg name="image_compressed_topic" default="/sensing/camera/camera0/image_rect_color/compressed" description="Input compressed image"/>
   <arg name="camera_info_topic" default="/sensing/camera/camera0/camera_info"/>
   <arg name="pointcloud_topic" default="/sensing/lidar/top/pointcloud_raw"/>
   <arg name="use_rectified_image" default="true" description="image_rect vs. raw"/>
   <arg name="view_only_ui" default="true" description="By default we use a minimal UI"/>
+  <arg name="use_compressed" default="true" description="Set false if input is raw image (not compressed)"/>
+  <arg name="image_raw_topic" default="" description="Raw image topic (used when use_compressed=false)"/>
 
   <arg name="lidar_model">
     <choice value="aeva_aeries2"/>
@@ -31,17 +35,18 @@
   <let name="rviz_profile" value=""/>
   <let name="rviz_profile" value="$(find-pkg-share tag_based_pnp_calibrator)/rviz/default_profile.rviz"/>
 
-  <!-- image decompressor -->
-  <node pkg="autoware_image_transport_decompressor" exec="image_transport_decompressor_node" name="decompressor" output="screen">
+  <!-- image decompressor (only when using compressed input) -->
+  <node pkg="autoware_image_transport_decompressor" exec="image_transport_decompressor_node" name="decompressor" output="screen"
+        if="$(eval &quot;'$(var use_compressed)' == 'true' &quot;)">
     <remap from="decompressor/input/compressed_image" to="$(var image_compressed_topic)"/>
     <remap from="decompressor/output/raw_image" to="$(var image_decompressed_topic)"/>
-
     <param name="encoding" value="default"/>
   </node>
 
   <!-- tag based calibrator -->
   <include file="$(find-pkg-share tag_based_pnp_calibrator)/launch/calibrator.launch.xml">
-    <arg name="image_topic" value="$(var image_decompressed_topic)"/>
+    <arg name="base_frame" value="$(var base_frame)"/>
+    <arg name="image_topic" value="$(eval &quot;'$(var image_decompressed_topic)' if '$(var use_compressed)' == 'true' else '$(var image_raw_topic)' &quot;)"/>
     <arg name="camera_info_topic" value="$(var camera_info_topic)"/>
     <arg name="pointcloud_topic" value="$(var pointcloud_topic)"/>
     <arg name="lidar_model" value="$(var lidar_model)"/>
@@ -49,10 +54,13 @@
     <arg name="calibration_service_name" value="calibrate_camera_lidar"/>
   </include>
 
+  <!-- Resolve image topic for view/interactive nodes -->
+  <let name="view_image_topic" value="$(eval &quot;'$(var image_compressed_topic)' if '$(var use_compressed)' == 'true' else '$(var image_raw_topic)' &quot;)"/>
+
   <!-- interactive calibrator -->
   <node pkg="interactive_camera_lidar_calibrator" exec="interactive_calibrator" name="interactive_calibrator" output="screen" if="$(eval &quot;'$(var view_only_ui)' == 'false' &quot;)">
     <remap from="pointcloud" to="$(var pointcloud_topic)"/>
-    <remap from="image" to="$(var image_compressed_topic)"/>
+    <remap from="image" to="$(var view_image_topic)"/>
     <remap from="camera_info" to="$(var camera_info_topic)"/>
     <remap from="calibration_points_input" to="calibration_points"/>
 
@@ -66,12 +74,15 @@
   <!-- camera view -->
   <node pkg="tier4_calibration_views" exec="image_view_node.py" name="image_view_node_py" output="screen" if="$(eval &quot;'$(var view_only_ui)' == 'true' &quot;)">
     <remap from="pointcloud" to="$(var pointcloud_topic)"/>
-    <remap from="image" to="$(var image_compressed_topic)"/>
+    <remap from="image" to="$(var view_image_topic)"/>
     <remap from="camera_info" to="$(var camera_info_topic)"/>
     <remap from="calibration_points_input" to="calibration_points"/>
 
     <param name="image_frame" value="$(var image_frame)"/>
     <param name="lidar_frame" value="$(var lidar_frame)"/>
+    <param name="parent_frame" value="$(var image_frame)"/>
+    <param name="child_frame" value="$(var lidar_frame)"/>
+    <param name="use_compressed" value="$(var use_compressed)"/>
   </node>
 
   <!-- create a placeholder lidar frame to make the rviz profile generic -->

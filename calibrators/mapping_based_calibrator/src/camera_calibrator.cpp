@@ -59,11 +59,12 @@ CameraCalibrator::CameraCalibrator(
     new BestFramesFilter(Filter::FilterType::CameraFilter, calibrator_name_, parameters));
   std::shared_ptr<Filter> object_detection_filter(new ObjectDetectionFilter(
     Filter::FilterType::CameraFilter, calibrator_name_, parameters, tf_buffer_));
-  std::vector<std::shared_ptr<Filter>> filters =
-    parameters_->filter_detections_
-      ? std::vector<std::shared_ptr<Filter>>{lost_state_filter, dynamics_filter, best_frames_filter}
-      : std::vector<std::shared_ptr<Filter>>{
-          lost_state_filter, dynamics_filter, best_frames_filter};
+  std::vector<std::shared_ptr<Filter>> filters;
+  if (parameters_->use_lost_state_filter_) {
+    filters.push_back(lost_state_filter);
+  }
+  filters.push_back(dynamics_filter);
+  filters.push_back(best_frames_filter);
 
   filter_.reset(
     new SequentialFilter(Filter::FilterType::CameraFilter, calibrator_name_, parameters, filters));

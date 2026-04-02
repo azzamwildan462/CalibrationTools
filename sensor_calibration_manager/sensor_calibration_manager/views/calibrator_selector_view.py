@@ -94,6 +94,10 @@ class CalibrationSelectorView(QWidget):
             if project_index != -1:
                 self.project_combobox.setCurrentIndex(project_index)
 
+        # Always populate calibrator list for current project (fixes bug where
+        # dropdown is empty when saved project matches the default selection)
+        onNewProjectName(self.project_combobox.currentText())
+
         # calibration preference and handler
         def onNewCalibratorName(new_calibrator: str):
             # save calibrator preference
